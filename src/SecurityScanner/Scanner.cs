@@ -6,7 +6,7 @@ public class Scanner
 {
     private List<string> _files;
     private readonly List<string> ScanItems = Constants.ScanItems;
-    private List<string> _dirtyFiles;
+    private List<string> _dirtyFiles = new List<string>();
     private int _hitsCounter;
     private int[] elementCounter = new int[Constants.ScanItems.Count];
 
