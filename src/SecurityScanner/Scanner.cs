@@ -4,14 +4,21 @@ namespace SecurityScanner;
 
 public class Scanner
 {
-    private List<string> _files;
-    private readonly List<string> ScanItems = Constants.ScanItems;
-    private List<string> _dirtyFiles = new List<string>();
+    private readonly string _path;
+    private readonly List<string> _files;
+    private readonly List<ScanObject> _scanItems = new ();
+    private List<string> _dirtyFiles = new();
     private int _hitsCounter;
-    private int[] elementCounter = new int[Constants.ScanItems.Count];
 
     public Scanner(string path, string filePattern = "*.cs")
     {
+        _path = path;
+        var secretsFileName = "SecretesToFind.txt";
+        var secrets = File.ReadAllLines(secretsFileName);
+        foreach (var secret in secrets)
+        {
+            _scanItems.Add(new ScanObject(secret));
+        }
         _files = Directory.GetFiles(path, filePattern, SearchOption.AllDirectories).ToList();
         if (filePattern == "*.cs")
         {
@@ -21,18 +28,22 @@ public class Scanner
 
     public void Scan()
     {
+
         var sb = new StringBuilder();
-        var falsePositives = Constants.FalsePositives;
+        GetFormattedHeader(sb,"Scan details");
+        sb.AppendLine($"searching for items: {_scanItems.ToCommaSeparatedString()}");
+        sb.AppendLine($"searching on path: {_path}");
+        GetFormattedHeader(sb, "Marked files");
         GetSuspectedFiles(sb);
-        sb.AppendLine("File list loaded");
-        sb.AppendLine("============================");
-        sb.AppendLine("============================");
-        sb.AppendLine("");
         var total = _dirtyFiles.Count;
+        GetFormattedHeader(sb, "Occurrences list");
+
+        var falsePositives = Constants.FalsePositives;
         for (var j = 0; j < total; j++)
         {
             ScanSuspectedFiles(j, total, falsePositives, sb);
         }
+
         HitsCountReport(sb);
         File.WriteAllText(@"./result.txt", sb.ToString());
     }
@@ -45,12 +56,12 @@ public class Scanner
 
         for (var i = 0; i < lines.Length; i++)
         {
-            for (var l = 0; l < ScanItems.Count; l++)
+            for (var l = 0; l < _scanItems.Count; l++)
             {
-                if (lines[i].Contains(ScanItems[l]) &&
+                if (lines[i].Contains(_scanItems[l].Name) &&
                     !falsePositives.Exists(x => lines[i].ToLower().Contains(x.ToLower())))
                 {
-                    if (ScanItems[l] == "token")
+                    if (_scanItems[l].Name == "token")
                     {
                         if (lines[i].Length < 120)
                             continue;
@@ -63,9 +74,9 @@ public class Scanner
                     }
 
                     sb.AppendLine($"{lines[i].ToString()}");
-                    sb.AppendLine($"\t'{ScanItems[l]}' at line {i}");
+                    sb.AppendLine($"\t'{_scanItems[l]}' at line {i}");
                     _hitsCounter++;
-                    elementCounter[l]++;
+                    _scanItems[l].Count++;
                 }
             }
         }
@@ -73,12 +84,23 @@ public class Scanner
 
     private void HitsCountReport(StringBuilder sb)
     {
-        sb.AppendLine("============================");
-        sb.AppendLine($"Found {_hitsCounter} hits");
-        for (var i = 0; i < ScanItems.Count; i++)
+        GetFormattedHeader(sb, "Summary");
+
+        sb.AppendLine($"Found {_hitsCounter} items");
+        sb.AppendLine("----------------------------");
+        for (var i = 0; i < _scanItems.Count; i++)
         {
-            sb.AppendLine($"'{ScanItems[i]}' : {elementCounter[i]} times ");
+            sb.AppendLine($"'{_scanItems[i].Name}' : {_scanItems[i].Count} times ");
         }
+    }
+
+    private void GetFormattedHeader(StringBuilder sb,string header)
+    {
+        sb.AppendLine();
+        sb.AppendLine("============================");
+        sb.AppendLine(header);
+        sb.AppendLine("============================");
+        sb.AppendLine();
     }
 
     private void GetSuspectedFiles(StringBuilder sb)
@@ -86,7 +108,7 @@ public class Scanner
         foreach (var file in _files)
         {
             var txt = File.ReadAllText(file).ToLower();
-            if (ScanItems.Any(x => txt.Contains(x)))
+            if (_scanItems.Any(x => txt.Contains(x.Name)))
             {
                 _dirtyFiles.Add(file);
                 sb.AppendLine($"File: {file}");
