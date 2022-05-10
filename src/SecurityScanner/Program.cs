@@ -1,4 +1,5 @@
-﻿using SecurityScanner;
+﻿using System.Diagnostics;
+using SecurityScanner;
 
 if (args.Length == 0)
 {
@@ -9,11 +10,14 @@ if (args.Length == 0)
     Environment.Exit(-1);
 }
 
-var pattern = ".cs";
+var pattern = "*.cs";
 if (args.Length == 2)
 {
     pattern = args[1];
 }
 var path = args[0];
+
+
+    
 var scanner = new Scanner(path, pattern);
 scanner.Scan();
